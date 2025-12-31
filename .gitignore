@@ -1,0 +1,39 @@
+# Kiro configuration and specs
+.kiro/
+
+# Documentation folder
+docs/
+
+# Initial PRD document
+initial PRD.md
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build output
+bin/
+dist/
