@@ -50,9 +50,9 @@ func TestProperty8_TokenExpirationCorrectness(t *testing.T) {
 		// Access token should expire in 15 minutes (with 1 second tolerance)
 		expectedAccessExpiry := beforeGeneration.Add(15 * time.Minute)
 		actualAccessExpiry := accessClaims.ExpiresAt.Time
-		
-		if actualAccessExpiry.Before(expectedAccessExpiry.Add(-1*time.Second)) || 
-		   actualAccessExpiry.After(afterGeneration.Add(15*time.Minute).Add(1*time.Second)) {
+
+		if actualAccessExpiry.Before(expectedAccessExpiry.Add(-1*time.Second)) ||
+			actualAccessExpiry.After(afterGeneration.Add(15*time.Minute).Add(1*time.Second)) {
 			t.Errorf("access token expiry incorrect: expected ~%v, got %v", expectedAccessExpiry, actualAccessExpiry)
 		}
 
@@ -65,9 +65,9 @@ func TestProperty8_TokenExpirationCorrectness(t *testing.T) {
 		// Refresh token should expire in 7 days (with 1 second tolerance)
 		expectedRefreshExpiry := beforeGeneration.Add(7 * 24 * time.Hour)
 		actualRefreshExpiry := refreshClaims.ExpiresAt.Time
-		
-		if actualRefreshExpiry.Before(expectedRefreshExpiry.Add(-1*time.Second)) || 
-		   actualRefreshExpiry.After(afterGeneration.Add(7*24*time.Hour).Add(1*time.Second)) {
+
+		if actualRefreshExpiry.Before(expectedRefreshExpiry.Add(-1*time.Second)) ||
+			actualRefreshExpiry.After(afterGeneration.Add(7*24*time.Hour).Add(1*time.Second)) {
 			t.Errorf("refresh token expiry incorrect: expected ~%v, got %v", expectedRefreshExpiry, actualRefreshExpiry)
 		}
 
@@ -80,7 +80,6 @@ func TestProperty8_TokenExpirationCorrectness(t *testing.T) {
 		}
 	})
 }
-
 
 // Feature: user-authentication, Property 9: JWT Structure Correctness
 // *For any* generated JWT token, it should be signed with HS256 algorithm and contain all required claims:
@@ -189,7 +188,6 @@ func TestProperty9_JWTStructureCorrectness(t *testing.T) {
 		}
 	})
 }
-
 
 // Feature: user-authentication, Property 12: Refresh Token Stored as Hash
 // *For any* session created during login, the stored token_hash should be SHA-256 hash of the refresh token,

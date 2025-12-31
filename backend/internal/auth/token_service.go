@@ -20,8 +20,8 @@ const (
 
 // Claims represents the JWT claims structure
 type Claims struct {
-	Email  string    `json:"email,omitempty"`
-	Type   TokenType `json:"type"`
+	Email string    `json:"email,omitempty"`
+	Type  TokenType `json:"type"`
 	jwt.RegisteredClaims
 }
 
@@ -105,7 +105,6 @@ func (s *TokenService) GenerateRefreshToken(userID string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString([]byte(s.refreshSecret))
 }
-
 
 // GenerateTokenPair generates both access and refresh tokens
 func (s *TokenService) GenerateTokenPair(userID, email string) (*TokenPair, error) {
