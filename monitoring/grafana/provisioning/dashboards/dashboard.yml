@@ -1,0 +1,18 @@
+# ==============================================================================
+# dashboard.yml
+# Grafana dashboard provisioning configuration
+# ==============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: 'Persistent Temp Mail'
+    orgId: 1
+    folder: 'PTM Dashboards'
+    folderUid: 'ptm'
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards

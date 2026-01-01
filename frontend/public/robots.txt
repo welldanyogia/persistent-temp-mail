@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard/
+Disallow: /inbox/
+Disallow: /settings/
+Disallow: /api/
+
+Sitemap: https://webrana.id/sitemap.xml

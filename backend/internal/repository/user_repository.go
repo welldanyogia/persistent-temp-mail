@@ -24,6 +24,9 @@ type UserRepository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	UpdateLastLogin(ctx context.Context, id uuid.UUID) error
 	EmailExists(ctx context.Context, email string) (bool, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetDeleteInfo(ctx context.Context, id uuid.UUID) (domainCount, aliasCount, emailCount, attachmentCount int, totalSize int64, err error)
+	GetAttachmentStorageKeys(ctx context.Context, id uuid.UUID) ([]string, error)
 }
 
 // userRepository implements UserRepository using PostgreSQL
@@ -158,4 +161,105 @@ func (r *userRepository) EmailExists(ctx context.Context, email string) (bool, e
 	}
 
 	return exists, nil
+}
+
+
+// Delete deletes a user by their ID
+// Requirements: 4.3 (Delete user account)
+// Note: CASCADE delete handles domains, aliases, emails, and attachments in DB
+func (r *userRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	query := `DELETE FROM users WHERE id = $1`
+
+	result, err := r.pool.Exec(ctx, query, id)
+	if err != nil {
+		return err
+	}
+
+	if result.RowsAffected() == 0 {
+		return ErrUserNotFound
+	}
+
+	return nil
+}
+
+// GetDeleteInfo retrieves information needed for cascade delete
+// Returns counts of domains, aliases, emails, attachments, and total size
+// Requirements: 4.3 (Delete user account with cascade info)
+func (r *userRepository) GetDeleteInfo(ctx context.Context, id uuid.UUID) (domainCount, aliasCount, emailCount, attachmentCount int, totalSize int64, err error) {
+	// Count domains
+	domainQuery := `SELECT COALESCE(COUNT(*), 0) FROM domains WHERE user_id = $1`
+	err = r.pool.QueryRow(ctx, domainQuery, id).Scan(&domainCount)
+	if err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+
+	// Count aliases
+	aliasQuery := `SELECT COALESCE(COUNT(*), 0) FROM aliases WHERE user_id = $1`
+	err = r.pool.QueryRow(ctx, aliasQuery, id).Scan(&aliasCount)
+	if err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+
+	// Count emails and get total email size
+	emailQuery := `
+		SELECT COALESCE(COUNT(*), 0), COALESCE(SUM(size_bytes), 0)
+		FROM emails e
+		JOIN aliases a ON e.alias_id = a.id
+		WHERE a.user_id = $1
+	`
+	var emailSize int64
+	err = r.pool.QueryRow(ctx, emailQuery, id).Scan(&emailCount, &emailSize)
+	if err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+
+	// Count attachments and get total attachment size
+	attachmentQuery := `
+		SELECT COALESCE(COUNT(*), 0), COALESCE(SUM(att.size_bytes), 0)
+		FROM attachments att
+		JOIN emails e ON att.email_id = e.id
+		JOIN aliases a ON e.alias_id = a.id
+		WHERE a.user_id = $1
+	`
+	var attachmentSize int64
+	err = r.pool.QueryRow(ctx, attachmentQuery, id).Scan(&attachmentCount, &attachmentSize)
+	if err != nil {
+		return 0, 0, 0, 0, 0, err
+	}
+
+	totalSize = emailSize + attachmentSize
+	return domainCount, aliasCount, emailCount, attachmentCount, totalSize, nil
+}
+
+// GetAttachmentStorageKeys retrieves all storage keys for attachments owned by a user
+// Requirements: 4.3 (Delete attachments from storage when user is deleted)
+func (r *userRepository) GetAttachmentStorageKeys(ctx context.Context, id uuid.UUID) ([]string, error) {
+	query := `
+		SELECT att.storage_key
+		FROM attachments att
+		JOIN emails e ON att.email_id = e.id
+		JOIN aliases a ON e.alias_id = a.id
+		WHERE a.user_id = $1
+	`
+
+	rows, err := r.pool.Query(ctx, query, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var keys []string
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return keys, nil
 }

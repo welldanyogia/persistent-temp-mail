@@ -22,6 +22,7 @@ type SessionRepository interface {
 	GetByTokenHash(ctx context.Context, tokenHash string) (*Session, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteByTokenHash(ctx context.Context, tokenHash string) error
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
 	CountFailedAttempts(ctx context.Context, email string, since time.Time) (int, error)
 	RecordFailedAttempt(ctx context.Context, email string, ip string) error
 	CleanupExpiredSessions(ctx context.Context) (int64, error)
@@ -178,4 +179,18 @@ func (r *sessionRepository) CleanupOldFailedAttempts(ctx context.Context, before
 	}
 
 	return result.RowsAffected(), nil
+}
+
+
+// DeleteByUserID removes all sessions for a user
+// Requirements: 4.3 (delete all sessions when user is deleted)
+func (r *sessionRepository) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
+	query := `DELETE FROM sessions WHERE user_id = $1`
+
+	_, err := r.pool.Exec(ctx, query, userID)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

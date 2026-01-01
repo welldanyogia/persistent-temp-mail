@@ -24,6 +24,7 @@ func RegisterRoutes(r chi.Router, handler *AuthHandler, authMiddleware Middlewar
 			r.Use(authMiddleware)
 			r.Post("/logout", handler.Logout)
 			r.Get("/me", handler.GetMe)
+			r.Delete("/me", handler.DeleteMe) // Delete user account with cascade delete
 		})
 	})
 }

@@ -1,0 +1,55 @@
+# ==============================================================================
+# smtp/Dockerfile
+# Multi-stage build for SMTP server
+# ==============================================================================
+
+# Stage 1: Builder
+FROM golang:1.23-alpine AS builder
+
+RUN apk add --no-cache git ca-certificates tzdata
+
+WORKDIR /build
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+# Build SMTP server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+    -ldflags="-w -s" \
+    -o /build/smtp-server \
+    ./cmd/smtp
+
+# Stage 2: Runtime
+FROM alpine:3.19 AS runtime
+
+RUN apk add --no-cache ca-certificates tzdata
+
+ENV TZ=Asia/Jakarta
+
+# Create directories for TLS certificates and mail queue
+RUN mkdir -p /etc/ssl/certs /etc/ssl/private /var/spool/mail
+
+# Create app user
+RUN addgroup -g 1000 smtp && \
+    adduser -u 1000 -G smtp -s /bin/sh -D smtp
+
+WORKDIR /app
+
+COPY --from=builder /build/smtp-server /app/smtp-server
+
+# Set ownership
+RUN chown -R smtp:smtp /app /var/spool/mail
+
+# Note: Container runs as root initially to bind to port 25
+# Application drops privileges after binding
+
+# Expose SMTP ports
+EXPOSE 25 587 465
+
+# Health check via SMTP EHLO
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD nc -z localhost 25 || exit 1
+
+ENTRYPOINT ["/app/smtp-server"]

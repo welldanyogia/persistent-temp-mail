@@ -190,6 +190,46 @@ func (h *AuthHandler) GetMe(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DeleteMe handles deleting the current user's account
+// DELETE /api/v1/auth/me
+// Requirements: 4.3 (Delete user account with cascade delete)
+// This deletes:
+// - All domains owned by the user
+// - All aliases under those domains
+// - All emails received by those aliases
+// - All attachments from those emails (both DB records and S3 storage)
+// - All sessions for the user
+func (h *AuthHandler) DeleteMe(w http.ResponseWriter, r *http.Request) {
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := appctx.ExtractUserID(r.Context())
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, CodeAuthTokenInvalid, "Invalid or expired token", nil)
+		return
+	}
+
+	response, err := h.authService.DeleteUser(r.Context(), userID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			h.writeError(w, http.StatusNotFound, "USER_NOT_FOUND", "User not found", nil)
+			return
+		}
+		h.writeError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "An unexpected error occurred", nil)
+		return
+	}
+
+	h.writeSuccess(w, http.StatusOK, map[string]interface{}{
+		"message": response.Message,
+		"deleted_resources": map[string]interface{}{
+			"user_id":                response.UserID,
+			"domains_deleted":        response.DomainsDeleted,
+			"aliases_deleted":        response.AliasesDeleted,
+			"emails_deleted":         response.EmailsDeleted,
+			"attachments_deleted":    response.AttachmentsDeleted,
+			"total_size_freed_bytes": response.TotalSizeFreedBytes,
+		},
+	})
+}
+
 // writeSuccess writes a successful JSON response
 func (h *AuthHandler) writeSuccess(w http.ResponseWriter, statusCode int, data interface{}) {
 	w.Header().Set("Content-Type", "application/json")

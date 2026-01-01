@@ -71,6 +71,30 @@ func (m *mockUserRepository) EmailExists(ctx context.Context, email string) (boo
 	return m.emailExists[strings.ToLower(email)], nil
 }
 
+func (m *mockUserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	if _, ok := m.users[id.String()]; ok {
+		delete(m.users, id.String())
+		return nil
+	}
+	return repository.ErrUserNotFound
+}
+
+func (m *mockUserRepository) GetDeleteInfo(ctx context.Context, id uuid.UUID) (domainCount, aliasCount, emailCount, attachmentCount int, totalSize int64, err error) {
+	if _, ok := m.users[id.String()]; !ok {
+		return 0, 0, 0, 0, 0, repository.ErrUserNotFound
+	}
+	// Return mock values for testing
+	return 0, 0, 0, 0, 0, nil
+}
+
+func (m *mockUserRepository) GetAttachmentStorageKeys(ctx context.Context, id uuid.UUID) ([]string, error) {
+	if _, ok := m.users[id.String()]; !ok {
+		return nil, repository.ErrUserNotFound
+	}
+	// Return empty slice for testing
+	return []string{}, nil
+}
+
 // mockSessionRepository implements repository.SessionRepository for testing
 type mockSessionRepository struct {
 	sessions       map[string]*repository.Session
@@ -139,6 +163,16 @@ func (m *mockSessionRepository) CleanupExpiredSessions(ctx context.Context) (int
 
 func (m *mockSessionRepository) CleanupOldFailedAttempts(ctx context.Context, before time.Time) (int64, error) {
 	return 0, nil
+}
+
+func (m *mockSessionRepository) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
+	// Delete all sessions for the user
+	for hash, session := range m.sessions {
+		if session.UserID == userID {
+			delete(m.sessions, hash)
+		}
+	}
+	return nil
 }
 
 // Helper function to create a test AuthService

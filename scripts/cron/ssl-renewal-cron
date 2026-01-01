@@ -1,0 +1,28 @@
+# ==============================================================================
+# ssl-renewal-cron
+# Cron job configuration for SSL certificate auto-renewal
+# Add to /etc/cron.d/ptm-ssl-renewal
+# ==============================================================================
+
+# Let's Encrypt recommends running renewal twice daily
+# This ensures certificates are renewed before expiry even if one run fails
+# Certbot only renews certificates expiring within 30 days
+
+# SSL certificate renewal - twice daily at random minutes to spread load
+# 3:17 AM and 3:17 PM (using odd minutes to avoid peak times)
+17 3,15 * * * root /opt/persistent-temp-mail/scripts/ssl-renew.sh renew >> /var/log/ssl-renewal.log 2>&1
+
+# Alternative: Using Docker certbot container directly
+# Uncomment if not using the ssl-renew.sh script
+# 17 3,15 * * * root docker compose -f /opt/persistent-temp-mail/docker-compose.prod.yml exec -T certbot certbot renew --quiet && docker exec ptm-nginx nginx -s reload >> /var/log/ssl-renewal.log 2>&1
+
+# Weekly certificate status check (Sunday 9 AM)
+# Logs expiry dates for monitoring
+0 9 * * 0 root /opt/persistent-temp-mail/scripts/ssl-renew.sh expiry >> /var/log/ssl-renewal.log 2>&1
+
+# Monthly dry-run test (1st of month at 4 AM)
+# Verifies renewal process works without making changes
+0 4 1 * * root /opt/persistent-temp-mail/scripts/ssl-renew.sh dry-run >> /var/log/ssl-renewal.log 2>&1
+
+# Log rotation for SSL renewal logs (keep 90 days)
+0 0 * * * root find /var/log/ssl-renewal*.log -mtime +90 -delete 2>/dev/null

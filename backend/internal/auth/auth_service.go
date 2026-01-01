@@ -3,12 +3,14 @@ package auth
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"net/mail"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/welldanyogia/persistent-temp-mail/backend/internal/repository"
+	"github.com/welldanyogia/persistent-temp-mail/backend/internal/storage"
 )
 
 // Auth service errors
@@ -100,6 +102,8 @@ type AuthService struct {
 	sessionRepo       repository.SessionRepository
 	tokenService      *TokenService
 	passwordValidator *PasswordValidator
+	storageService    *storage.StorageService
+	logger            *slog.Logger
 }
 
 // NewAuthService creates a new AuthService instance
@@ -114,6 +118,30 @@ func NewAuthService(
 		sessionRepo:       sessionRepo,
 		tokenService:      tokenService,
 		passwordValidator: passwordValidator,
+		logger:            slog.Default(),
+	}
+}
+
+// NewAuthServiceWithStorage creates a new AuthService instance with storage service
+// This is used when storage cleanup is needed for user deletion
+func NewAuthServiceWithStorage(
+	userRepo repository.UserRepository,
+	sessionRepo repository.SessionRepository,
+	tokenService *TokenService,
+	passwordValidator *PasswordValidator,
+	storageService *storage.StorageService,
+	logger *slog.Logger,
+) *AuthService {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	return &AuthService{
+		userRepo:          userRepo,
+		sessionRepo:       sessionRepo,
+		tokenService:      tokenService,
+		passwordValidator: passwordValidator,
+		storageService:    storageService,
+		logger:            logger,
 	}
 }
 
@@ -416,4 +444,98 @@ func isValidEmail(email string) bool {
 	}
 	_, err := mail.ParseAddress(email)
 	return err == nil
+}
+
+
+// DeleteUserResponse represents the response after deleting a user account
+type DeleteUserResponse struct {
+	Message             string `json:"message"`
+	UserID              string `json:"user_id"`
+	DomainsDeleted      int    `json:"domains_deleted"`
+	AliasesDeleted      int    `json:"aliases_deleted"`
+	EmailsDeleted       int    `json:"emails_deleted"`
+	AttachmentsDeleted  int    `json:"attachments_deleted"`
+	TotalSizeFreedBytes int64  `json:"total_size_freed_bytes"`
+}
+
+// DeleteUser deletes a user account and all associated data
+// Requirements: 4.3 (Delete user account with cascade delete)
+// This includes:
+// - All domains owned by the user
+// - All aliases under those domains
+// - All emails received by those aliases
+// - All attachments from those emails (both DB records and S3 storage)
+// - All sessions for the user
+func (s *AuthService) DeleteUser(ctx context.Context, userID string) (*DeleteUserResponse, error) {
+	id, err := uuid.Parse(userID)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+
+	// Verify user exists
+	_, err = s.userRepo.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	// Get delete info before deletion
+	domainCount, aliasCount, emailCount, attachmentCount, totalSize, err := s.userRepo.GetDeleteInfo(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get attachment storage keys before deletion
+	storageKeys, err := s.userRepo.GetAttachmentStorageKeys(ctx, id)
+	if err != nil {
+		s.logger.Warn("Failed to get attachment storage keys for user deletion", "user_id", id, "error", err)
+		// Continue with deletion even if we can't get storage keys
+	}
+
+	// Delete attachments from S3 storage
+	attachmentsDeletedFromStorage := 0
+	if len(storageKeys) > 0 && s.storageService != nil {
+		deleted, _, err := s.storageService.DeleteByKeys(ctx, storageKeys)
+		if err != nil {
+			s.logger.Warn("Failed to delete attachments from storage during user deletion", "user_id", id, "error", err)
+			// Continue with deletion even if storage cleanup fails
+		}
+		attachmentsDeletedFromStorage = deleted
+	}
+
+	// Delete all sessions for the user
+	if err := s.sessionRepo.DeleteByUserID(ctx, id); err != nil {
+		s.logger.Warn("Failed to delete sessions during user deletion", "user_id", id, "error", err)
+		// Continue with deletion even if session cleanup fails
+	}
+
+	// Delete user (CASCADE handles domains, aliases, emails, attachments in DB)
+	if err := s.userRepo.Delete(ctx, id); err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+
+	s.logger.Info("User account deleted",
+		"user_id", id,
+		"domains_deleted", domainCount,
+		"aliases_deleted", aliasCount,
+		"emails_deleted", emailCount,
+		"attachments_deleted", attachmentCount,
+		"attachments_deleted_from_storage", attachmentsDeletedFromStorage,
+		"total_size_freed", totalSize,
+	)
+
+	return &DeleteUserResponse{
+		Message:             "User account deleted successfully",
+		UserID:              userID,
+		DomainsDeleted:      domainCount,
+		AliasesDeleted:      aliasCount,
+		EmailsDeleted:       emailCount,
+		AttachmentsDeleted:  attachmentCount,
+		TotalSizeFreedBytes: totalSize,
+	}, nil
 }

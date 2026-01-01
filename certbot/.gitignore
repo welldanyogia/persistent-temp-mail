@@ -1,0 +1,11 @@
+# Certbot .gitignore
+# Never commit certificates or private keys
+
+# Let's Encrypt configuration and certificates
+conf/
+
+# Webroot challenge files (auto-generated)
+www/.well-known/
+
+# Keep the directory structure
+!.gitkeep
