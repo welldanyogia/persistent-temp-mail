@@ -84,7 +84,15 @@ export function CreateAliasDialog({ onCreate }: CreateAliasDialogProps) {
 
   const onSubmit = async (data: CreateAliasFormValues) => {
     setIsSubmitting(true);
-    const success = await onCreate(data);
+    // Filter out undefined description to satisfy exactOptionalPropertyTypes
+    const payload: { local_part: string; domain_id: string; description?: string } = {
+      local_part: data.local_part,
+      domain_id: data.domain_id,
+    };
+    if (data.description) {
+      payload.description = data.description;
+    }
+    const success = await onCreate(payload);
     setIsSubmitting(false);
     if (success) {
       setOpen(false);
