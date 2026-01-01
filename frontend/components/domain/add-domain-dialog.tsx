@@ -99,7 +99,7 @@ export function AddDomainDialog({ onDomainAdded }: AddDomainDialogProps) {
             <DNSInstructions 
               domainId={createdDomain.id}
               domainName={createdDomain.domain_name} 
-              verificationToken={createdDomain.verification_token ?? ""} 
+              verificationToken={String(createdDomain.verification_token ?? "")} 
             />
             <DialogFooter className="sm:justify-end">
               <Button onClick={() => handleClose(false)}>Done</Button>
