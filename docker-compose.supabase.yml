@@ -79,8 +79,9 @@ services:
     image: ptm-backend:${VERSION:-latest}
     container_name: ptm-backend
     restart: unless-stopped
-    expose:
-      - "8080"
+    # Change expose to ports in docker-compose.supabase.yml
+    ports:
+      - "8080:8080"
     env_file:
       - .env.production
     depends_on:
