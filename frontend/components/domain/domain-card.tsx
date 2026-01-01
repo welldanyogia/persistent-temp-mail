@@ -122,7 +122,7 @@ export function DomainCard({ domain, onUpdate }: DomainCardProps) {
                <DNSInstructions 
                  domainId={domain.id}
                  domainName={domain.domain_name} 
-                 verificationToken={domain.verification_token} 
+                 verificationToken={domain.verification_token ?? ""} 
                />
              </DialogContent>
            </Dialog>

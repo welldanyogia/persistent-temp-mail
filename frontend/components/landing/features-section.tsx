@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Mail, Shield, Zap, Lock, Globe, Bell } from "lucide-react";
+import { Shield, Zap, Globe, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const features = [

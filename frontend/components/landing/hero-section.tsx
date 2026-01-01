@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { ArrowRight, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export function HeroSection({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (

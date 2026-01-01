@@ -7,7 +7,6 @@ import { LayoutDashboard, Inbox, Mail, Globe, Settings, LogOut } from "lucide-re
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 import { Badge } from "@/components/ui/badge";
-import { useEmails } from "@/hooks/use-emails";
 
 export const navItems = [
   {
@@ -51,10 +50,24 @@ export function Sidebar({ className, isMobile, onNavigate, ...props }: SidebarPr
   return (
     <div className={cn("flex flex-col h-full bg-card border-r", className)} {...props}>
       <div className="p-4 lg:p-6">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl" onClick={onNavigate}>
-          <Mail className="h-6 w-6 text-primary shrink-0" />
-          <span className={cn("truncate transition-all", !isMobile && "hidden lg:inline")}>TempMail</span>
-        </Link>
+        {onNavigate ? (
+          <Link 
+            href="/dashboard" 
+            className="flex items-center gap-2 font-bold text-xl" 
+            onClick={() => onNavigate()}
+          >
+            <Mail className="h-6 w-6 text-primary shrink-0" />
+            <span className={cn("truncate transition-all", !isMobile && "hidden lg:inline")}>TempMail</span>
+          </Link>
+        ) : (
+          <Link 
+            href="/dashboard" 
+            className="flex items-center gap-2 font-bold text-xl"
+          >
+            <Mail className="h-6 w-6 text-primary shrink-0" />
+            <span className={cn("truncate transition-all", !isMobile && "hidden lg:inline")}>TempMail</span>
+          </Link>
+        )}
       </div>
       
       <div 
@@ -64,20 +77,21 @@ export function Sidebar({ className, isMobile, onNavigate, ...props }: SidebarPr
       >
         {navItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+          const linkProps = {
+            key: item.href,
+            href: item.href,
+            "aria-current": isActive ? ("page" as const) : undefined,
+            className: cn(
+              "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+              isActive
+                ? "bg-primary/10 text-primary"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            ),
+            title: item.title,
+            ...(onNavigate && { onClick: () => onNavigate() }),
+          };
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={isActive ? "page" : undefined}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all group relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                isActive
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              title={item.title}
-            >
+            <Link {...linkProps}>
               <item.icon className="h-5 w-5 shrink-0" />
               <span className={cn("truncate transition-all", !isMobile && "hidden lg:inline")}>
                 {item.title}

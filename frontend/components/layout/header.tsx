@@ -1,7 +1,6 @@
 "use client";
 
-import { Bell, User as UserIcon } from "lucide-react";
-import { useTheme } from "next-themes";
+import { Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -50,7 +49,7 @@ export function Header() {
               <Button variant="ghost" className="relative h-8 w-8 rounded-full focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" aria-label="User menu">
                 <Avatar className="h-8 w-8">
                   <AvatarFallback className="bg-primary/10 text-primary font-medium">
-                    {user?.email?.[0].toUpperCase() || "U"}
+                    {user?.email?.charAt(0).toUpperCase() || "U"}
                   </AvatarFallback>
                 </Avatar>
               </Button>

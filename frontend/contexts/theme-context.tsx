@@ -13,14 +13,14 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { theme, setTheme, systemTheme } = useNextTheme();
+  const { theme, setTheme } = useNextTheme();
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const currentTheme = (theme === "system" ? systemTheme : theme) as Theme;
+  // Resolved theme for reference (not used but kept for potential future use)
 
   // We actually don't need to manually apply class 'dark' to document.documentElement
   // because next-themes handles it automatically with `attribute="class"`.

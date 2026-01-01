@@ -12,7 +12,7 @@ import { DNSStatusResponse } from "@/types/domain";
 interface DNSInstructionsProps {
   domainId?: string;
   domainName: string;
-  verificationToken: string;
+  verificationToken?: string;
 }
 
 export function DNSInstructions({ domainId, verificationToken }: DNSInstructionsProps) {
@@ -78,7 +78,7 @@ export function DNSInstructions({ domainId, verificationToken }: DNSInstructions
     {
       type: "TXT",
       name: "_tempmail-verification",
-      value: verificationToken,
+      value: verificationToken || "",
       priority: null,
       key: "txt",
     },

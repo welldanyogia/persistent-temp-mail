@@ -154,8 +154,8 @@ export function EmailList() {
               <Calendar
                 initialFocus
                 mode="range"
-                defaultMonth={dateRange?.from}
-                selected={dateRange || undefined}
+                defaultMonth={dateRange?.from ?? new Date()}
+                selected={dateRange}
                 onSelect={handleDateChange}
                 numberOfMonths={2}
               />

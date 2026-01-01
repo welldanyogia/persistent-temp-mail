@@ -1,14 +1,13 @@
 "use client";
 
-import React, { createContext, useContext, useState, useCallback, ReactNode } from "react";
+import { createContext, useContext, useCallback, ReactNode } from "react";
 import { useRealtime } from "@/hooks/use-realtime";
 import { 
   NewEmailEvent, 
   EmailDeletedEvent, 
   AliasCreatedEvent, 
   AliasDeletedEvent, 
-  DomainVerifiedEvent,
-  DomainDeletedEvent
+  DomainVerifiedEvent
 } from "@/types/realtime";
 import { useAuth } from "./auth-context";
 

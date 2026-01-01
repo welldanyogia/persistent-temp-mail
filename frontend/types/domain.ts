@@ -4,7 +4,7 @@
  */
 
 export type DomainStatus = 'pending' | 'verified';
-export type SSLStatus = 'pending' | 'active' | 'expired';
+export type SSLStatus = 'pending' | 'active' | 'expired' | 'failed';
 
 export interface DNSRecord {
   type: string;

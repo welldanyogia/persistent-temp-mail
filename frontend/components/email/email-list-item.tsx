@@ -20,13 +20,14 @@ export function EmailListItem({ email, selected, onSelect, onDelete }: EmailList
   const isSwiping = useRef(false);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientX;
+    touchStart.current = e.touches[0]?.clientX ?? null;
     isSwiping.current = false;
   };
 
   const onTouchMove = (e: React.TouchEvent) => {
     if (touchStart.current === null) return;
-    const currentX = e.touches[0].clientX;
+    const currentX = e.touches[0]?.clientX;
+    if (currentX === undefined) return;
     const diff = touchStart.current - currentX;
 
     // Only swipe left, and limit to 80px
