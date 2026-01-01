@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -23,12 +24,17 @@ type StorageService struct {
 
 // NewStorageService creates a new storage service with S3/MinIO client
 func NewStorageService(cfg *config.StorageConfig) (*StorageService, error) {
-	// Build endpoint URL
-	protocol := "http"
-	if cfg.UseSSL {
-		protocol = "https"
+	// Build endpoint URL - handle case where endpoint already includes protocol
+	var endpointURL string
+	if strings.HasPrefix(cfg.Endpoint, "http://") || strings.HasPrefix(cfg.Endpoint, "https://") {
+		endpointURL = cfg.Endpoint
+	} else {
+		protocol := "http"
+		if cfg.UseSSL {
+			protocol = "https"
+		}
+		endpointURL = protocol + "://" + cfg.Endpoint
 	}
-	endpointURL := protocol + "://" + cfg.Endpoint
 
 	// Create S3 client with custom endpoint for MinIO compatibility
 	client := s3.New(s3.Options{

@@ -152,17 +152,24 @@ services:
     restart: unless-stopped
     expose:
       - "6379"
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    env_file:
+      - .env.production
+    command: >
+      sh -c 'redis-server 
+      --appendonly yes 
+      --maxmemory 256mb 
+      --maxmemory-policy allkeys-lru 
+      --requirepass "$${REDIS_PASSWORD}"'
     volumes:
       - redis-data:/data
     networks:
       - tempmail-network
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$${REDIS_PASSWORD}\" ping | grep PONG"]
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 5s
+      start_period: 10s
     deploy:
       resources:
         limits:

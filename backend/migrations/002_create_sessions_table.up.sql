@@ -26,8 +26,9 @@ CREATE TABLE sessions (
 -- Indexes
 CREATE UNIQUE INDEX idx_sessions_token_hash ON sessions (token_hash);
 CREATE INDEX idx_sessions_user_id ON sessions (user_id, expires_at DESC);
-CREATE INDEX idx_sessions_expires_at ON sessions (expires_at)
-    WHERE expires_at > (NOW() AT TIME ZONE 'utc');
+-- Note: Partial index removed because NOW() is not IMMUTABLE
+-- Expired sessions should be cleaned up by a scheduled job instead
+CREATE INDEX idx_sessions_expires_at ON sessions (expires_at);
 
 -- Comments
 COMMENT ON TABLE sessions IS 'User authentication sessions and refresh tokens';
