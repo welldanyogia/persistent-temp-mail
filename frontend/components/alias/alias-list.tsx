@@ -15,7 +15,8 @@ export function AliasList() {
     setSearch, 
     createAlias, 
     toggleAlias, 
-    deleteAlias 
+    deleteAlias,
+    refresh,
   } = useAliases();
 
   const handleCreateAlias = async (data: { local_part: string; domain_id: string; description?: string }) => {
@@ -24,6 +25,10 @@ export function AliasList() {
     // For now, we strictly follow the contract type.
     const { local_part, domain_id } = data;
     return createAlias({ local_part, domain_id });
+  };
+
+  const handleGenerate = () => {
+    refresh();
   };
 
   const filteredAliases = aliases.filter(alias => 
@@ -43,7 +48,7 @@ export function AliasList() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <CreateAliasDialog onCreate={handleCreateAlias} />
+        <CreateAliasDialog onCreate={handleCreateAlias} onGenerate={handleGenerate} />
       </div>
 
       {isLoading ? (
@@ -74,7 +79,7 @@ export function AliasList() {
               : "Create your first alias to start receiving emails."}
           </p>
           {!search && (
-            <CreateAliasDialog onCreate={handleCreateAlias} />
+            <CreateAliasDialog onCreate={handleCreateAlias} onGenerate={handleGenerate} />
           )}
         </div>
       ) : (

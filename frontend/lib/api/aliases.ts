@@ -83,4 +83,16 @@ export const aliasService = {
     const response = await apiClient.patch<{ alias: Alias }>(`/aliases/${id}`, { is_active: isActive });
     return response.alias;
   },
+
+  /**
+   * Generate a random alias
+   * POST /api/v1/aliases/generate
+   */
+  generate: async (domainId: string, description?: string): Promise<Alias> => {
+    const response = await apiClient.post<{ alias: Alias }>('/aliases/generate', {
+      domain_id: domainId,
+      ...(description && { description }),
+    });
+    return response.alias;
+  },
 };

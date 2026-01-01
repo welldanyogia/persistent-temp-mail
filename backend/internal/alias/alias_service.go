@@ -55,6 +55,12 @@ type UpdateAliasRequest struct {
 	Description *string `json:"description,omitempty" validate:"omitempty,max=500"`
 }
 
+// GenerateAliasRequest represents the request to generate a random alias
+type GenerateAliasRequest struct {
+	DomainID    string `json:"domain_id" validate:"required,uuid"`
+	Description string `json:"description,omitempty" validate:"omitempty,max=500"`
+}
+
 // ListAliasParams holds parameters for listing aliases
 type ListAliasParams struct {
 	Page     int    `json:"page" validate:"min=1"`
@@ -269,6 +275,29 @@ func (s *Service) Create(ctx context.Context, userID uuid.UUID, req CreateAliasR
 		LastEmailReceivedAt: nil,
 		TotalSizeBytes:      0,
 	}, nil, nil
+}
+
+// GenerateRandom creates a new alias with a random local part
+func (s *Service) GenerateRandom(ctx context.Context, userID uuid.UUID, req GenerateAliasRequest) (*AliasResponse, error) {
+	// Generate random local part
+	localPart := generateRandomLocalPart()
+
+	// Use Create with generated local part
+	createReq := CreateAliasRequest{
+		LocalPart:   localPart,
+		DomainID:    req.DomainID,
+		Description: req.Description,
+	}
+
+	alias, _, err := s.Create(ctx, userID, createReq)
+	return alias, err
+}
+
+// generateRandomLocalPart generates a random 8-character alphanumeric string
+func generateRandomLocalPart() string {
+	id := uuid.New().String()
+	// Use first 8 chars of UUID (without hyphens)
+	return id[:8]
 }
 
 

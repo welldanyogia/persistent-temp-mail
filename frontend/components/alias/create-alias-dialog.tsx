@@ -23,9 +23,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2, Plus, Shuffle } from "lucide-react";
 import { domainService } from "@/lib/api/domains";
+import { aliasService } from "@/lib/api/aliases";
 import { Domain } from "@/types/domain";
+import { Alias } from "@/types/alias";
 
 const createAliasSchema = z.object({
   local_part: z
@@ -40,11 +42,13 @@ type CreateAliasFormValues = z.infer<typeof createAliasSchema>;
 
 interface CreateAliasDialogProps {
   onCreate: (data: { local_part: string; domain_id: string; description?: string }) => Promise<boolean>;
+  onGenerate?: (alias: Alias) => void;
 }
 
-export function CreateAliasDialog({ onCreate }: CreateAliasDialogProps) {
+export function CreateAliasDialog({ onCreate, onGenerate }: CreateAliasDialogProps) {
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [domains, setDomains] = useState<Domain[]>([]);
   const [isLoadingDomains, setIsLoadingDomains] = useState(false);
 
@@ -97,6 +101,23 @@ export function CreateAliasDialog({ onCreate }: CreateAliasDialogProps) {
     if (success) {
       setOpen(false);
       form.reset();
+    }
+  };
+
+  const handleGenerate = async () => {
+    const domainId = form.getValues("domain_id");
+    if (!domainId) return;
+    
+    setIsGenerating(true);
+    try {
+      const alias = await aliasService.generate(domainId);
+      onGenerate?.(alias);
+      setOpen(false);
+      form.reset();
+    } catch (error) {
+      console.error("Failed to generate alias", error);
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -184,7 +205,16 @@ export function CreateAliasDialog({ onCreate }: CreateAliasDialogProps) {
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleGenerate}
+              disabled={isGenerating || isLoadingDomains || domains.length === 0 || !selectedDomainId}
+            >
+              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Shuffle className="mr-2 h-4 w-4" />}
+              Generate Random
+            </Button>
             <Button type="submit" disabled={isSubmitting || isLoadingDomains || domains.length === 0}>
               {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Create Alias

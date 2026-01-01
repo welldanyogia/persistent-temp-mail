@@ -18,6 +18,9 @@ func RegisterRoutes(r chi.Router, handler *Handler, authMiddleware func(next htt
 		// Requirements: 1.1-1.9, 6.1-6.5, 7.1, 7.3
 		r.Post("/", handler.Create)
 
+		// POST /api/v1/aliases/generate - Generate random alias
+		r.Post("/generate", handler.Generate)
+
 		// GET /api/v1/aliases - List user aliases (paginated)
 		// Requirements: 2.1-2.6
 		r.Get("/", handler.List)

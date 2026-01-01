@@ -273,6 +273,42 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Generate handles POST /api/v1/aliases/generate
+func (h *Handler) Generate(w http.ResponseWriter, r *http.Request) {
+	userIDStr, ok := appctx.ExtractUserID(r.Context())
+	if !ok {
+		h.writeError(w, http.StatusUnauthorized, "AUTH_TOKEN_INVALID", "Invalid or expired token", nil)
+		return
+	}
+
+	userID, err := uuid.Parse(userIDStr)
+	if err != nil {
+		h.writeError(w, http.StatusUnauthorized, "AUTH_TOKEN_INVALID", "Invalid user ID", nil)
+		return
+	}
+
+	var req GenerateAliasRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.writeError(w, http.StatusBadRequest, CodeValidationError, "Invalid request body", nil)
+		return
+	}
+
+	if req.DomainID == "" {
+		h.writeError(w, http.StatusBadRequest, CodeValidationError, "domain_id is required", nil)
+		return
+	}
+
+	alias, err := h.aliasService.GenerateRandom(r.Context(), userID, req)
+	if err != nil {
+		h.handleAliasError(w, err, nil)
+		return
+	}
+
+	h.writeSuccess(w, http.StatusCreated, map[string]interface{}{
+		"alias": alias,
+	})
+}
+
 // handleAliasError maps alias service errors to HTTP responses
 func (h *Handler) handleAliasError(w http.ResponseWriter, err error, validationErrors []string) {
 	switch {
