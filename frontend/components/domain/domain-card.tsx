@@ -74,11 +74,15 @@ export function DomainCard({ domain, onUpdate }: DomainCardProps) {
   };
 
   const getSSLIcon = () => {
-    switch (domain.ssl_status) {
-      case "active": return <ShieldCheck className="h-4 w-4 text-green-500" />;
-      case "failed": return <ShieldAlert className="h-4 w-4 text-destructive" />;
-      default: return <RefreshCw className="h-4 w-4 text-muted-foreground" />; // pending/provisioning
+    const status = domain.ssl_status;
+    if (status === "active") {
+      return <ShieldCheck className="h-4 w-4 text-green-500" />;
     }
+    if (status === "failed" || status === "expired") {
+      return <ShieldAlert className="h-4 w-4 text-destructive" />;
+    }
+    // pending or other statuses
+    return <RefreshCw className="h-4 w-4 text-muted-foreground" />;
   };
 
   return (
