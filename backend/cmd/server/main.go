@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	_ "github.com/jackc/pgx/v5/stdlib" // pgx driver for sqlx
 	"github.com/jmoiron/sqlx"
@@ -312,13 +313,12 @@ func main() {
 	// Setup router
 	r := chi.NewRouter()
 
-	// Global middleware
+	// Global middleware (applied to all routes except SSE)
 	// Requirements: 14.4 - Application logs SHALL include correlation IDs for request tracing
 	r.Use(middleware.RequestID) // Generate request ID first
 	r.Use(authmw.StructuredLogger(appLogger)) // Use structured JSON logging with correlation ID
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Timeout(60 * time.Second))
 
 	// Prometheus metrics middleware
 	// Requirements: 9.5 - Backend SHALL expose /metrics endpoint in Prometheus format
@@ -328,7 +328,7 @@ func main() {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   []string{"https://webrana.id", "https://www.webrana.id", "https://persistent-temp-mail.vercel.app", "http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID", "Last-Event-ID"},
 		ExposedHeaders:   []string{"Link", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
 		AllowCredentials: true,
 		MaxAge:           300,
@@ -358,51 +358,54 @@ func main() {
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
-		// Register auth routes
-		auth.RegisterRoutes(r, authHandler, authMiddleware.Authenticate)
-
-		// Register domain routes with rate limiting for verify endpoint
-		r.Route("/domains", func(r chi.Router) {
-			r.Use(authMiddleware.Authenticate)
-
-			r.Get("/", domainHandler.ListDomains)
-			r.Post("/", domainHandler.CreateDomain)
-			r.Get("/{id}", domainHandler.GetDomain)
-			r.Delete("/{id}", domainHandler.DeleteDomain)
-			r.Get("/{id}/dns-status", domainHandler.GetDNSStatus)
-
-			// Verify endpoint with rate limiting
-			r.With(verifyRateLimiter.RateLimitVerify).Post("/{id}/verify", domainHandler.VerifyDomain)
-
-			// SSL certificate management endpoints
-			// Requirements: 3.7 - SSL API endpoints for certificate management
-			if sslHandler != nil {
-				r.Get("/{id}/ssl", sslHandler.GetSSLStatus)
-				r.Post("/{id}/ssl/provision", sslHandler.ProvisionSSL)
-				r.Post("/{id}/ssl/renew", sslHandler.RenewSSL)
-			}
-		})
-
-		// SSL health check endpoint (public)
-		// Requirements: 8.6 - Provide API endpoint for SSL health check
-		if sslHandler != nil {
-			r.Get("/ssl/health", sslHandler.HealthCheck)
-		}
-
-		// Register alias routes
-		// Requirements: All alias management endpoints
-		alias.RegisterRoutes(r, aliasHandler, authMiddleware.Authenticate)
-
-		// Register email routes with attachment download rate limiting
-		// Requirements: All email inbox API endpoints (1.1-1.9, 2.1-2.8, 3.1-3.7, 4.1-4.5, 5.1-5.5, 6.1-6.5, 7.1-7.5)
-		// Requirements: 6.7 - Rate limit downloads to 100 per user per hour
-		// Task 8.1: Wire all components together
-		email.RegisterRoutesWithRateLimit(r, emailHandler, authMiddleware.Authenticate, attachmentDownloadRateLimiter.RateLimitDownload)
-
-		// Register SSE routes for real-time notifications
+		// SSE routes WITHOUT timeout middleware (SSE needs long-lived connections)
 		// Requirements: 1.1, 1.2 - SSE Connection endpoint with authentication
-		// Task 11.1: Wire all components together
 		sse.RegisterRoutes(r, sseHandler)
+
+		// All other routes WITH timeout middleware
+		r.Group(func(r chi.Router) {
+			r.Use(middleware.Timeout(60 * time.Second))
+
+			// Register auth routes
+			auth.RegisterRoutes(r, authHandler, authMiddleware.Authenticate)
+
+			// Register domain routes with rate limiting for verify endpoint
+			r.Route("/domains", func(r chi.Router) {
+				r.Use(authMiddleware.Authenticate)
+
+				r.Get("/", domainHandler.ListDomains)
+				r.Post("/", domainHandler.CreateDomain)
+				r.Get("/{id}", domainHandler.GetDomain)
+				r.Delete("/{id}", domainHandler.DeleteDomain)
+				r.Get("/{id}/dns-status", domainHandler.GetDNSStatus)
+
+				// Verify endpoint with rate limiting
+				r.With(verifyRateLimiter.RateLimitVerify).Post("/{id}/verify", domainHandler.VerifyDomain)
+
+				// SSL certificate management endpoints
+				// Requirements: 3.7 - SSL API endpoints for certificate management
+				if sslHandler != nil {
+					r.Get("/{id}/ssl", sslHandler.GetSSLStatus)
+					r.Post("/{id}/ssl/provision", sslHandler.ProvisionSSL)
+					r.Post("/{id}/ssl/renew", sslHandler.RenewSSL)
+				}
+			})
+
+			// SSL health check endpoint (public)
+			// Requirements: 8.6 - Provide API endpoint for SSL health check
+			if sslHandler != nil {
+				r.Get("/ssl/health", sslHandler.HealthCheck)
+			}
+
+			// Register alias routes
+			// Requirements: All alias management endpoints
+			alias.RegisterRoutes(r, aliasHandler, authMiddleware.Authenticate)
+
+			// Register email routes with attachment download rate limiting
+			// Requirements: All email inbox API endpoints (1.1-1.9, 2.1-2.8, 3.1-3.7, 4.1-4.5, 5.1-5.5, 6.1-6.5, 7.1-7.5)
+			// Requirements: 6.7 - Rate limit downloads to 100 per user per hour
+			email.RegisterRoutesWithRateLimit(r, emailHandler, authMiddleware.Authenticate, attachmentDownloadRateLimiter.RateLimitDownload)
+		})
 	})
 
 	// Create server
@@ -537,6 +540,10 @@ func setupDatabase(cfg *config.Config, log *slog.Logger) (*pgxpool.Pool, error) 
 	poolConfig.MaxConnLifetime = 5 * time.Minute
 	poolConfig.MaxConnIdleTime = 1 * time.Minute
 	poolConfig.HealthCheckPeriod = 30 * time.Second
+
+	// Disable prepared statement cache for Supabase/PgBouncer compatibility
+	// PgBouncer in transaction mode doesn't support prepared statements
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeSimpleProtocol
 
 	// Create pool
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
@@ -685,9 +692,9 @@ func setupSMTPServer(cfg *config.Config, dbPool *pgxpool.Pool, storageService *s
 // setupSqlxDatabase creates and configures a sqlx database connection
 // This is used by repositories that require sqlx (email, attachment)
 func setupSqlxDatabase(cfg *config.Config, log *slog.Logger) (*sqlx.DB, error) {
-	// Build connection string
+	// Build connection string with simple protocol mode for Supabase/PgBouncer compatibility
 	connString := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s",
+		"host=%s port=%s user=%s password=%s dbname=%s sslmode=%s default_query_exec_mode=simple_protocol",
 		cfg.Database.Host,
 		cfg.Database.Port,
 		cfg.Database.User,

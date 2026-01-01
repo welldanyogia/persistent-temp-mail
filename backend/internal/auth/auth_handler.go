@@ -270,18 +270,44 @@ func getClientIP(r *http.Request) string {
 		// X-Forwarded-For can contain multiple IPs, take the first one
 		ips := splitAndTrim(xff, ",")
 		if len(ips) > 0 {
-			return ips[0]
+			return stripPort(ips[0])
 		}
 	}
 
 	// Check X-Real-IP header
 	xri := r.Header.Get("X-Real-IP")
 	if xri != "" {
-		return xri
+		return stripPort(xri)
 	}
 
-	// Fall back to RemoteAddr
-	return r.RemoteAddr
+	// Fall back to RemoteAddr (strip port)
+	return stripPort(r.RemoteAddr)
+}
+
+// stripPort removes the port from an IP:port string
+func stripPort(addr string) string {
+	// Handle IPv6 addresses like [::1]:8080
+	if len(addr) > 0 && addr[0] == '[' {
+		if idx := findLastIndex(addr, ']'); idx != -1 {
+			return addr[1:idx]
+		}
+		return addr
+	}
+	// Handle IPv4 addresses like 192.168.1.1:8080
+	if idx := findLastIndex(addr, ':'); idx != -1 {
+		return addr[:idx]
+	}
+	return addr
+}
+
+// findLastIndex finds the last occurrence of a character in a string
+func findLastIndex(s string, c byte) int {
+	for i := len(s) - 1; i >= 0; i-- {
+		if s[i] == c {
+			return i
+		}
+	}
+	return -1
 }
 
 // splitAndTrim splits a string by separator and trims whitespace from each part

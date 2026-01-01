@@ -5,6 +5,7 @@ package metrics
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -208,6 +209,13 @@ func (rw *responseWriter) Write(b []byte) (int, error) {
 	return n, err
 }
 
+// Flush implements http.Flusher interface
+func (rw *responseWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
 // Middleware returns a chi middleware that records HTTP metrics
 func Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -216,6 +224,12 @@ func Middleware(next http.Handler) http.Handler {
 		// Track in-flight requests
 		HTTPRequestsInFlight.Inc()
 		defer HTTPRequestsInFlight.Dec()
+
+		// Skip wrapping for SSE endpoints to preserve http.Flusher
+		if strings.HasPrefix(r.URL.Path, "/api/v1/events/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// Wrap response writer to capture status and size
 		rw := newResponseWriter(w)

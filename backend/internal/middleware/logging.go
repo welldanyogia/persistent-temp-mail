@@ -7,6 +7,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -41,6 +42,12 @@ func (m *LoggingMiddleware) Handler(next http.Handler) http.Handler {
 		// Add correlation ID to context for downstream use
 		ctx := logger.SetCorrelationID(r.Context(), requestID)
 		r = r.WithContext(ctx)
+
+		// Skip wrapping for SSE endpoints to preserve http.Flusher interface
+		if strings.HasPrefix(r.URL.Path, "/api/v1/events/") {
+			next.ServeHTTP(w, r)
+			return
+		}
 
 		// Create a response wrapper to capture status code
 		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
