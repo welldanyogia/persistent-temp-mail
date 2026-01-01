@@ -1,0 +1,193 @@
+# ==============================================================================
+# docker-compose.supabase.yml
+# Production deployment dengan Supabase (Database + Storage)
+# Tanpa MinIO - menggunakan Supabase Storage sebagai S3-compatible storage
+# ==============================================================================
+
+name: persistent-temp-mail-supabase
+
+services:
+  # ===========================================================================
+  # Nginx Reverse Proxy
+  # ===========================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: ptm-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - nginx-logs:/var/log/nginx
+    depends_on:
+      - backend
+    networks:
+      - tempmail-network
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Certbot for SSL Certificates
+  # ===========================================================================
+  certbot:
+    image: certbot/certbot:latest
+    container_name: ptm-certbot
+    restart: unless-stopped
+    volumes:
+      - ./certbot/conf:/etc/letsencrypt
+      - ./certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew --webroot --webroot-path=/var/www/certbot --quiet; sleep 12h & wait $${!}; done;'"
+    networks:
+      - tempmail-network
+    depends_on:
+      - nginx
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # ===========================================================================
+  # Backend API Service
+  # Connects to Supabase PostgreSQL and Supabase Storage
+  # ===========================================================================
+  backend:
+    image: ghcr.io/welldanyogia/ptm-backend:${VERSION:-latest}
+    container_name: ptm-backend
+    restart: unless-stopped
+    expose:
+      - "8080"
+    env_file:
+      - .env.production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - tempmail-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ===========================================================================
+  # SMTP Server Service
+  # ===========================================================================
+  smtp:
+    image: ghcr.io/welldanyogia/ptm-smtp:${VERSION:-latest}
+    container_name: ptm-smtp
+    restart: unless-stopped
+    ports:
+      - "25:25"
+      - "587:587"
+      - "465:465"
+    env_file:
+      - .env.production
+    volumes:
+      - smtp-queue:/var/spool/mail
+      - ./certbot/conf/live/mail.webrana.id:/etc/ssl/certs:ro
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - tempmail-network
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # ===========================================================================
+  # Redis Cache
+  # Local cache for rate limiting and session management
+  # ===========================================================================
+  redis:
+    image: redis:7.2-alpine
+    container_name: ptm-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - tempmail-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# ===========================================================================
+# Networks
+# ===========================================================================
+networks:
+  tempmail-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.29.0.0/16
+
+# ===========================================================================
+# Volumes
+# ===========================================================================
+volumes:
+  redis-data:
+    driver: local
+  smtp-queue:
+    driver: local
+  nginx-logs:
+    driver: local
