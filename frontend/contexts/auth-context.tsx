@@ -77,6 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const authData = await authService.login(data);
       apiClient.setToken(authData.tokens.access_token);
+      apiClient.setRefreshToken(authData.tokens.refresh_token);
       setUser(authData.user);
       toast.success("Login successful");
       router.push("/dashboard");
@@ -90,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const authData = await authService.register(data);
       apiClient.setToken(authData.tokens.access_token);
+      apiClient.setRefreshToken(authData.tokens.refresh_token);
       setUser(authData.user);
       toast.success("Registration successful");
       router.push("/dashboard");
@@ -102,13 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await authService.logout();
+      apiClient.clearTokens();
       setUser(null);
       toast.success("Logged out successfully");
       router.push("/login");
     } catch (error: any) {
       console.error("Logout error:", error);
       // Force local logout anyway
-      apiClient.setToken(null);
+      apiClient.clearTokens();
       setUser(null);
       router.push("/login");
     }

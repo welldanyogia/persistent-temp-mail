@@ -100,7 +100,8 @@ func main() {
 	}
 
 	// Build database URL
-	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
+	// Note: default_query_exec_mode=simple_protocol is required for Supabase connection pooler (pgbouncer)
+	dbURL := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s&default_query_exec_mode=simple_protocol",
 		*dbUser, *dbPassword, *dbHost, *dbPort, *dbName, *dbSSLMode)
 
 	cfg := &Config{

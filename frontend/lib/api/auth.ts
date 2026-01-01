@@ -34,12 +34,14 @@ export const authService = {
   /**
    * Logout and invalidate session
    * POST /api/v1/auth/logout
+   * Requires refresh_token in body
    */
   logout: async (): Promise<void> => {
     try {
-      await apiClient.post('/auth/logout', {}, { skipAuth: false });
+      const refreshToken = apiClient.getRefreshToken();
+      await apiClient.post('/auth/logout', { refresh_token: refreshToken }, { skipAuth: false });
     } finally {
-      apiClient.setToken(null);
+      apiClient.clearTokens();
     }
   },
 
@@ -58,26 +60,40 @@ export const authService = {
    */
   deleteAccount: async (): Promise<DeleteAccountResponse> => {
     const response = await apiClient.delete<DeleteAccountResponse>('/auth/me');
-    apiClient.setToken(null);
+    apiClient.clearTokens();
     return response;
   },
 
   /**
    * Manually refresh access token
    * POST /api/v1/auth/refresh
+   * Requires refresh_token in body
    * Note: Refresh is handled automatically by client.ts, but exposed here if needed manually
    */
   refresh: async (): Promise<boolean> => {
     try {
+      const refreshToken = apiClient.getRefreshToken();
+      if (!refreshToken) {
+        return false;
+      }
+
       const response = await fetch(`${API_BASE}/auth/refresh`, {
         method: 'POST',
-        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ refresh_token: refreshToken }),
       });
+
       if (response.ok) {
         const data = await response.json();
-        const token = data.data?.tokens?.access_token;
-        if (token) {
-          apiClient.setToken(token);
+        const tokens = data.data?.tokens;
+        if (tokens?.access_token) {
+          apiClient.setToken(tokens.access_token);
+          // Update refresh token if new one provided
+          if (tokens.refresh_token) {
+            apiClient.setRefreshToken(tokens.refresh_token);
+          }
           return true;
         }
       }

@@ -45,7 +45,6 @@ CREATE TABLE failed_login_attempts (
     -- Constraints
     CONSTRAINT failed_login_email_valid CHECK (
         email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$'
-    )$'
     )
 );
 

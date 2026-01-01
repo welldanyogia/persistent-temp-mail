@@ -19,12 +19,14 @@ interface ApiResponse<T> {
 
 class ApiClient {
   private token: string | null = null;
+  private refreshToken_: string | null = null;
   private isRefreshing = false;
   private refreshPromise: Promise<boolean> | null = null;
 
   constructor() {
     if (typeof window !== 'undefined') {
       this.token = localStorage.getItem('access_token');
+      this.refreshToken_ = localStorage.getItem('refresh_token');
     }
   }
 
@@ -37,6 +39,26 @@ class ApiClient {
         localStorage.removeItem('access_token');
       }
     }
+  }
+
+  setRefreshToken(token: string | null) {
+    this.refreshToken_ = token;
+    if (typeof window !== 'undefined') {
+      if (token) {
+        localStorage.setItem('refresh_token', token);
+      } else {
+        localStorage.removeItem('refresh_token');
+      }
+    }
+  }
+
+  getRefreshToken(): string | null {
+    return this.refreshToken_;
+  }
+
+  clearTokens() {
+    this.setToken(null);
+    this.setRefreshToken(null);
   }
 
   async request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -60,7 +82,7 @@ class ApiClient {
       });
 
       if (response.status === 401 && !skipAuth) {
-        const refreshed = await this.refreshToken();
+        const refreshed = await this.refreshTokenRequest();
         if (refreshed) {
           (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
           const retryResponse = await fetch(url, {
@@ -69,7 +91,7 @@ class ApiClient {
           });
           return this.handleResponse<T>(retryResponse);
         } else {
-          this.setToken(null);
+          this.clearTokens();
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
           }
@@ -101,7 +123,7 @@ class ApiClient {
     if (!response.ok) {
       const errorData = data as { error?: { message?: string } | string; message?: string };
       let errorMessage = `Request failed: ${response.statusText}`;
-      
+
       if (errorData?.error) {
         if (typeof errorData.error === 'string') {
           errorMessage = errorData.error;
@@ -111,7 +133,7 @@ class ApiClient {
       } else if (errorData?.message) {
         errorMessage = errorData.message;
       }
-      
+
       throw new Error(errorMessage);
     }
 
@@ -131,9 +153,14 @@ class ApiClient {
     );
   }
 
-  private async refreshToken(): Promise<boolean> {
+  private async refreshTokenRequest(): Promise<boolean> {
     if (this.isRefreshing) {
       return this.refreshPromise || Promise.resolve(false);
+    }
+
+    // No refresh token available
+    if (!this.refreshToken_) {
+      return false;
     }
 
     this.isRefreshing = true;
@@ -142,16 +169,23 @@ class ApiClient {
       try {
         const response = await fetch(`${API_BASE}/auth/refresh`, {
           method: 'POST',
-          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ refresh_token: this.refreshToken_ }),
         });
 
         if (response.ok) {
           const data = await response.json();
-          // Contract: data.data.tokens.access_token
-          const newToken = data.data?.tokens?.access_token;
-          
-          if (newToken) {
-            this.setToken(newToken);
+          // Contract: data.data.tokens.access_token and data.data.tokens.refresh_token
+          const tokens = data.data?.tokens;
+
+          if (tokens?.access_token) {
+            this.setToken(tokens.access_token);
+            // Also update refresh token if a new one is provided
+            if (tokens.refresh_token) {
+              this.setRefreshToken(tokens.refresh_token);
+            }
             return true;
           }
         }
