@@ -379,5 +379,26 @@ func (r *DomainRepository) CountByUserID(ctx context.Context, userID uuid.UUID) 
 	return count, nil
 }
 
+// UpdateSSLStatus updates the SSL status for a domain
+func (r *DomainRepository) UpdateSSLStatus(ctx context.Context, id uuid.UUID, enabled bool, expiresAt *time.Time) error {
+	query := `
+		UPDATE domains
+		SET ssl_enabled = $1, ssl_expires_at = $2, updated_at = $3
+		WHERE id = $4
+	`
+
+	now := time.Now().UTC()
+	result, err := r.pool.Exec(ctx, query, enabled, expiresAt, now, id)
+	if err != nil {
+		return fmt.Errorf("failed to update SSL status: %w", err)
+	}
+
+	if result.RowsAffected() == 0 {
+		return domain.ErrDomainNotFound
+	}
+
+	return nil
+}
+
 // Ensure DomainRepository implements domain.Repository interface
 var _ domain.Repository = (*DomainRepository)(nil)

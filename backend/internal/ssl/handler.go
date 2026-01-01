@@ -84,6 +84,7 @@ type HealthCheckResponse struct {
 // DomainRepository defines the interface for domain data access
 type DomainRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Domain, error)
+	UpdateSSLStatus(ctx context.Context, id uuid.UUID, enabled bool, expiresAt *time.Time) error
 }
 
 // SSLHandler handles HTTP requests for SSL certificate management endpoints
@@ -218,6 +219,15 @@ func (h *SSLHandler) ProvisionSSL(w http.ResponseWriter, r *http.Request) {
 			h.logger.Error("SSL provisioning failed", "error", result.Error, "domain_id", domainID, "domain_name", d.DomainName)
 			return
 		}
+		
+		// Update domains table with SSL status
+		if result.Certificate != nil && !result.Certificate.ExpiresAt.IsZero() {
+			expiresAt := result.Certificate.ExpiresAt
+			if err := h.domainRepo.UpdateSSLStatus(ctx, domainID, true, &expiresAt); err != nil {
+				h.logger.Error("Failed to update domain SSL status", "error", err, "domain_id", domainID)
+			}
+		}
+		
 		h.logger.Info("SSL provisioning completed", "domain_id", domainID, "domain_name", d.DomainName)
 	}()
 
