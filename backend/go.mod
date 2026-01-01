@@ -1,6 +1,6 @@
 module github.com/welldanyogia/persistent-temp-mail/backend
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/aws/aws-sdk-go-v2 v1.41.0
@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.0
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-chi/cors v1.2.2
-	github.com/go-playground/validator/v10 v10.30.1
+	github.com/go-playground/validator/v10 v10.29.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/google/uuid v1.6.0
@@ -16,6 +16,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/prometheus/client_golang v1.23.2
+	github.com/redis/go-redis/v9 v9.17.2
 	golang.org/x/crypto v0.46.0
 	pgregory.net/rapid v1.2.0
 )
@@ -48,7 +49,6 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/redis/go-redis/v9 v9.17.2 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
