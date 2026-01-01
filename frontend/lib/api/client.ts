@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.webrana.id/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.webrana.id/api/v1';
 
 interface RequestOptions extends RequestInit {
   skipAuth?: boolean;

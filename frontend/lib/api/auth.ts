@@ -12,7 +12,7 @@ import {
   DeleteAccountResponse,
 } from '@/types/auth';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.webrana.id/v1';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'https://api.webrana.id/api/v1';
 
 export const authService = {
   /**
