@@ -69,7 +69,10 @@ services:
   # Connects to Supabase PostgreSQL and Supabase Storage
   # ===========================================================================
   backend:
-    image: ghcr.io/welldanyogia/ptm-backend:${VERSION:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: ptm-backend:${VERSION:-latest}
     container_name: ptm-backend
     restart: unless-stopped
     expose:
@@ -105,7 +108,10 @@ services:
   # SMTP Server Service
   # ===========================================================================
   smtp:
-    image: ghcr.io/welldanyogia/ptm-smtp:${VERSION:-latest}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.smtp
+    image: ptm-smtp:${VERSION:-latest}
     container_name: ptm-smtp
     restart: unless-stopped
     ports:
