@@ -48,9 +48,9 @@ export function useRealtime(options: UseRealtimeOptions = {}) {
       eventSourceRef.current.close();
     }
 
-    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.webrana.id/v1";
-    // Ensure we don't have double /v1 if API_BASE already has it
-    const url = `${API_BASE}/events?token=${token}`;
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://api.webrana.id/api/v1";
+    // Backend SSE endpoint is at /events/stream
+    const url = `${API_BASE}/events/stream?token=${token}`;
     
     const eventSource = new EventSource(url);
 
